@@ -1,11 +1,13 @@
 import "./styles.css";
 import * as OpenCC from "opencc-js";
 import { pinyin } from "pinyin-pro";
-import { Check, Clipboard, History, Languages, Search, Trash2, X, createIcons } from "lucide";
+import { Check, Clipboard, History, Home, Languages, Moon, Search, Sun, Trash2, X, createIcons } from "lucide";
 
 const STORAGE_KEYS = {
   history: "chinese-converter.history.v2",
-  mode: "chinese-converter.mode.v2"
+  mode: "chinese-converter.mode.v2",
+  page: "chinese-converter.page.v1",
+  theme: "chinese-converter.theme.v1"
 };
 
 const MYMEMORY_ENDPOINT = "https://api.mymemory.translated.net/get";
@@ -22,14 +24,19 @@ const iconSet = {
   Check,
   Clipboard,
   History,
+  Home,
   Languages,
+  Moon,
   Search,
+  Sun,
   Trash2,
   X
 };
 
 const state = {
   mode: loadJSON(STORAGE_KEYS.mode, "translate"),
+  page: loadJSON(STORAGE_KEYS.page, "home"),
+  theme: loadJSON(STORAGE_KEYS.theme, "light"),
   history: loadJSON(STORAGE_KEYS.history, []),
   lastHanziResult: null,
   lastTranslationResult: null,
@@ -40,126 +47,144 @@ document.querySelector("#app").innerHTML = `
   <div class="app-shell">
     <header class="app-header">
       <div>
-        <p class="eyebrow">Chinese Converter</p>
-        <h1>日本語を中国語へ、簡体字と拼音で表示</h1>
+        <p class="eyebrow">Chinese-Japanese Converter</p>
+        <h1>Chinese-Japanese Converter</h1>
       </div>
-      <span class="trust-badge">外部翻訳</span>
+      <div class="header-actions">
+        <span class="trust-badge">外部翻訳</span>
+        <button class="icon-button" type="button" id="theme-toggle" aria-label="ダークモードに切り替え" title="ダークモードに切り替え" aria-pressed="false">
+          <i data-lucide="moon"></i>
+        </button>
+      </div>
     </header>
 
+    <nav class="page-tabs" aria-label="ページ">
+      <button class="page-tab" type="button" data-page-button="home">
+        <i data-lucide="home"></i>
+        <span>Home</span>
+      </button>
+      <button class="page-tab" type="button" data-page-button="history">
+        <i data-lucide="history"></i>
+        <span>History</span>
+      </button>
+    </nav>
+
     <main class="app-main">
-      <section class="tool-panel" aria-labelledby="tool-title">
-        <div class="tool-heading">
-          <div>
-            <h2 id="tool-title">変換</h2>
-            <p>日本語文は翻訳APIで中国語へ変換します。</p>
-          </div>
-          <div class="segmented" role="tablist" aria-label="変換モード">
-            <button class="segment" type="button" id="tab-translate" data-mode-button="translate" role="tab" aria-controls="panel-translate">
-              <i data-lucide="search"></i>
-              <span>日本語</span>
-            </button>
-            <button class="segment" type="button" id="tab-hanzi" data-mode-button="hanzi" role="tab" aria-controls="panel-hanzi">
-              <i data-lucide="languages"></i>
-              <span>漢字</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="notice" role="note">
-          <strong>出典</strong>
-          <span>日本語翻訳は MyMemory Translation API を使います。Google公式翻訳APIではありません。</span>
-        </div>
-
-        <section class="mode-panel" id="panel-translate" data-panel="translate" role="tabpanel" aria-labelledby="tab-translate">
-          <div class="field-head">
+      <section class="app-page" data-page="home">
+        <section class="tool-panel" aria-labelledby="tool-title">
+          <div class="tool-heading">
             <div>
-              <label id="translate-title" for="translate-input">日本語テキスト</label>
-              <p id="translate-byte-count" class="field-note">0 / 500バイト</p>
+              <h2 id="tool-title">変換</h2>
+              <p>日本語文は翻訳APIで中国語へ変換します。</p>
             </div>
-            <button class="icon-button subtle" type="button" id="translate-clear" aria-label="入力を消去" title="入力を消去">
-              <i data-lucide="x"></i>
-            </button>
-          </div>
-          <textarea id="translate-input" rows="6" placeholder="例: 明日は大学で化学の実験があります。" aria-describedby="translate-byte-count translation-status"></textarea>
-          <div class="action-row">
-            <button class="primary-button" type="button" id="translate-run">
-              <i data-lucide="search"></i>
-              <span>翻訳</span>
-            </button>
-            <button class="ghost-button" type="button" id="translation-save-history" disabled>
-              <i data-lucide="history"></i>
-              <span>保存</span>
-            </button>
-          </div>
-          <p id="translation-status" class="status-line" role="status">日本語を入力して翻訳を押してください。</p>
-
-          <div class="results-grid" aria-live="polite">
-            <article class="result-card">
-              <div class="result-head">
-                <span>簡体字中国語</span>
-                <button class="icon-button" type="button" data-copy="translation" aria-label="翻訳結果をコピー" title="翻訳結果をコピー" disabled>
-                  <i data-lucide="clipboard"></i>
-                </button>
-              </div>
-              <p id="translation-simplified" class="result-text muted">翻訳すると表示されます</p>
-            </article>
-            <article class="result-card">
-              <div class="result-head">
-                <span>拼音</span>
-                <button class="icon-button" type="button" data-copy="translation-pinyin" aria-label="拼音をコピー" title="拼音をコピー" disabled>
-                  <i data-lucide="clipboard"></i>
-                </button>
-              </div>
-              <p id="translation-pinyin" class="result-text muted">翻訳すると表示されます</p>
-              <p id="translation-pinyin-number" class="tone-text"></p>
-            </article>
-          </div>
-        </section>
-
-        <section class="mode-panel" id="panel-hanzi" data-panel="hanzi" role="tabpanel" aria-labelledby="tab-hanzi">
-          <div class="field-head">
-            <label id="hanzi-title" for="hanzi-input">漢字・中国語文</label>
-            <button class="icon-button subtle" type="button" id="hanzi-clear" aria-label="入力を消去" title="入力を消去">
-              <i data-lucide="x"></i>
-            </button>
-          </div>
-          <textarea id="hanzi-input" rows="6" placeholder="漢字・繁體字・中文を入力"></textarea>
-          <div class="action-row">
-            <button class="primary-button" type="button" id="hanzi-convert">
-              <i data-lucide="languages"></i>
-              <span>変換</span>
-            </button>
-            <button class="ghost-button" type="button" id="hanzi-save-history" disabled>
-              <i data-lucide="history"></i>
-              <span>保存</span>
-            </button>
+            <div class="segmented" role="tablist" aria-label="変換モード">
+              <button class="segment" type="button" id="tab-translate" data-mode-button="translate" role="tab" aria-controls="panel-translate">
+                <i data-lucide="search"></i>
+                <span>日本語</span>
+              </button>
+              <button class="segment" type="button" id="tab-hanzi" data-mode-button="hanzi" role="tab" aria-controls="panel-hanzi">
+                <i data-lucide="languages"></i>
+                <span>漢字</span>
+              </button>
+            </div>
           </div>
 
-          <div class="results-grid" aria-live="polite">
-            <article class="result-card">
-              <div class="result-head">
-                <span>簡体字</span>
-                <button class="icon-button" type="button" data-copy="simplified" aria-label="簡体字をコピー" title="簡体字をコピー" disabled>
-                  <i data-lucide="clipboard"></i>
-                </button>
-              </div>
-              <p id="hanzi-simplified" class="result-text muted">入力すると表示されます</p>
-            </article>
-            <article class="result-card">
-              <div class="result-head">
-                <span>拼音</span>
-                <button class="icon-button" type="button" data-copy="pinyin" aria-label="拼音をコピー" title="拼音をコピー" disabled>
-                  <i data-lucide="clipboard"></i>
-                </button>
-              </div>
-              <p id="hanzi-pinyin" class="result-text muted">入力すると表示されます</p>
-              <p id="hanzi-pinyin-number" class="tone-text"></p>
-            </article>
+          <div class="notice" role="note">
+            <strong>出典</strong>
+            <span>日本語翻訳は MyMemory Translation API を使います。Google公式翻訳APIではありません。</span>
           </div>
+
+          <section class="mode-panel" id="panel-translate" data-panel="translate" role="tabpanel" aria-labelledby="tab-translate">
+            <div class="field-head">
+              <div>
+                <label id="translate-title" for="translate-input">日本語テキスト</label>
+                <p id="translate-byte-count" class="field-note">0 / 500バイト</p>
+              </div>
+              <button class="icon-button subtle" type="button" id="translate-clear" aria-label="入力を消去" title="入力を消去">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+            <textarea id="translate-input" rows="6" placeholder="例: 明日は大学で化学の実験があります。" aria-describedby="translate-byte-count translation-status"></textarea>
+            <div class="action-row">
+              <button class="primary-button" type="button" id="translate-run">
+                <i data-lucide="search"></i>
+                <span>翻訳</span>
+              </button>
+              <button class="ghost-button" type="button" id="translation-save-history" disabled>
+                <i data-lucide="history"></i>
+                <span>保存</span>
+              </button>
+            </div>
+            <p id="translation-status" class="status-line" role="status">日本語を入力して翻訳を押してください。</p>
+
+            <div class="results-grid" aria-live="polite">
+              <article class="result-card">
+                <div class="result-head">
+                  <span>簡体字中国語</span>
+                  <button class="icon-button" type="button" data-copy="translation" aria-label="翻訳結果をコピー" title="翻訳結果をコピー" disabled>
+                    <i data-lucide="clipboard"></i>
+                  </button>
+                </div>
+                <p id="translation-simplified" class="result-text muted">翻訳すると表示されます</p>
+              </article>
+              <article class="result-card">
+                <div class="result-head">
+                  <span>拼音</span>
+                  <button class="icon-button" type="button" data-copy="translation-pinyin" aria-label="拼音をコピー" title="拼音をコピー" disabled>
+                    <i data-lucide="clipboard"></i>
+                  </button>
+                </div>
+                <p id="translation-pinyin" class="result-text muted">翻訳すると表示されます</p>
+                <p id="translation-pinyin-number" class="tone-text"></p>
+              </article>
+            </div>
+          </section>
+
+          <section class="mode-panel" id="panel-hanzi" data-panel="hanzi" role="tabpanel" aria-labelledby="tab-hanzi">
+            <div class="field-head">
+              <label id="hanzi-title" for="hanzi-input">漢字・中国語文</label>
+              <button class="icon-button subtle" type="button" id="hanzi-clear" aria-label="入力を消去" title="入力を消去">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+            <textarea id="hanzi-input" rows="6" placeholder="漢字・繁體字・中文を入力"></textarea>
+            <div class="action-row">
+              <button class="primary-button" type="button" id="hanzi-convert">
+                <i data-lucide="languages"></i>
+                <span>変換</span>
+              </button>
+              <button class="ghost-button" type="button" id="hanzi-save-history" disabled>
+                <i data-lucide="history"></i>
+                <span>保存</span>
+              </button>
+            </div>
+
+            <div class="results-grid" aria-live="polite">
+              <article class="result-card">
+                <div class="result-head">
+                  <span>簡体字</span>
+                  <button class="icon-button" type="button" data-copy="simplified" aria-label="簡体字をコピー" title="簡体字をコピー" disabled>
+                    <i data-lucide="clipboard"></i>
+                  </button>
+                </div>
+                <p id="hanzi-simplified" class="result-text muted">入力すると表示されます</p>
+              </article>
+              <article class="result-card">
+                <div class="result-head">
+                  <span>拼音</span>
+                  <button class="icon-button" type="button" data-copy="pinyin" aria-label="拼音をコピー" title="拼音をコピー" disabled>
+                    <i data-lucide="clipboard"></i>
+                  </button>
+                </div>
+                <p id="hanzi-pinyin" class="result-text muted">入力すると表示されます</p>
+                <p id="hanzi-pinyin-number" class="tone-text"></p>
+              </article>
+            </div>
+          </section>
         </section>
       </section>
 
-      <section class="support-grid">
+      <section class="app-page history-page" data-page="history" aria-labelledby="history-title">
         <article class="support-card" aria-labelledby="history-title">
           <div class="support-head">
             <div>
@@ -178,8 +203,11 @@ document.querySelector("#app").innerHTML = `
 `;
 
 const elements = {
+  pages: [...document.querySelectorAll("[data-page]")],
+  pageButtons: [...document.querySelectorAll("[data-page-button]")],
   panels: [...document.querySelectorAll("[data-panel]")],
   modeButtons: [...document.querySelectorAll("[data-mode-button]")],
+  themeToggle: document.querySelector("#theme-toggle"),
   translateInput: document.querySelector("#translate-input"),
   translateButton: document.querySelector("#translate-run"),
   translateByteCount: document.querySelector("#translate-byte-count"),
@@ -202,6 +230,11 @@ renderAll();
 refreshIcons();
 
 function wireEvents() {
+  elements.pageButtons.forEach((button) => {
+    button.addEventListener("click", () => setPage(button.dataset.pageButton));
+  });
+  elements.themeToggle.addEventListener("click", toggleTheme);
+
   elements.modeButtons.forEach((button) => {
     button.addEventListener("click", () => setMode(button.dataset.modeButton));
     button.addEventListener("keydown", handleTabKeydown);
@@ -288,11 +321,54 @@ function handleTabKeydown(event) {
 }
 
 function renderAll() {
+  setTheme(state.theme);
+  setPage(state.page);
   setMode(state.mode);
   updateTranslateByteCount();
   renderTranslationEmpty();
   renderHanziConversion(false);
   renderHistory();
+}
+
+function setPage(page) {
+  state.page = page === "history" ? "history" : "home";
+  saveJSON(STORAGE_KEYS.page, state.page);
+
+  elements.pageButtons.forEach((button) => {
+    const isActive = button.dataset.pageButton === state.page;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+    if (isActive) {
+      button.setAttribute("aria-current", "page");
+    } else {
+      button.removeAttribute("aria-current");
+    }
+  });
+
+  elements.pages.forEach((pageElement) => {
+    pageElement.hidden = pageElement.dataset.page !== state.page;
+  });
+}
+
+function toggleTheme() {
+  setTheme(state.theme === "dark" ? "light" : "dark");
+}
+
+function setTheme(theme) {
+  state.theme = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = state.theme;
+  saveJSON(STORAGE_KEYS.theme, state.theme);
+  renderThemeToggle();
+}
+
+function renderThemeToggle() {
+  const isDark = state.theme === "dark";
+  const label = isDark ? "ライトモードに切り替え" : "ダークモードに切り替え";
+  elements.themeToggle.setAttribute("aria-label", label);
+  elements.themeToggle.setAttribute("aria-pressed", String(isDark));
+  elements.themeToggle.title = label;
+  elements.themeToggle.innerHTML = `<i data-lucide="${isDark ? "sun" : "moon"}"></i>`;
+  refreshIcons();
 }
 
 function updateTranslateByteCount() {
@@ -522,11 +598,13 @@ function handleHistoryClick(event) {
   if (!entry) return;
 
   if (entry.type === "hanzi") {
+    setPage("home");
     setMode("hanzi");
     elements.hanziInput.value = entry.payload.input;
     renderHanziConversion(false);
     elements.hanziInput.focus();
   } else {
+    setPage("home");
     setMode("translate");
     elements.translateInput.value = entry.payload.input;
     updateTranslateByteCount();
