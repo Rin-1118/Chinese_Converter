@@ -89,11 +89,6 @@ document.querySelector("#app").innerHTML = `
             </div>
           </div>
 
-          <div class="notice" role="note">
-            <strong>出典</strong>
-            <span>日本語翻訳は MyMemory Translation API を使います。Google公式翻訳APIではありません。</span>
-          </div>
-
           <section class="mode-panel" id="panel-translate" data-panel="translate" role="tabpanel" aria-labelledby="tab-translate">
             <div class="field-head">
               <div>

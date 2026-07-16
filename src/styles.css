@@ -20,7 +20,6 @@
   --primary-soft: #d9f0ee;
   --accent: #b65f29;
   --accent-soft: #fff0e6;
-  --notice-ink: #5e3218;
   --danger: #a33b38;
   --placeholder: #66716c;
   --disabled-bg: #e8edf4;
@@ -48,7 +47,6 @@
   --primary-soft: #123f3c;
   --accent: #f0a060;
   --accent-soft: #2a1d15;
-  --notice-ink: #ffd1a5;
   --danger: #ff8e88;
   --placeholder: #93a1af;
   --disabled-bg: #18212b;
@@ -269,23 +267,6 @@ h3 {
   background: var(--surface-raised);
   color: var(--primary-dark);
   box-shadow: var(--shadow-soft), inset 0 -3px 0 var(--primary);
-}
-
-.notice {
-  display: flex;
-  gap: 8px;
-  margin: 16px 0;
-  border: 1px solid rgba(182, 95, 41, 0.24);
-  border-radius: 14px;
-  padding: 11px 13px;
-  background: var(--accent-soft);
-  color: var(--notice-ink);
-  font-size: 0.9rem;
-  line-height: 1.45;
-}
-
-.notice strong {
-  flex: 0 0 auto;
 }
 
 .field-head {
@@ -624,10 +605,6 @@ input {
   .action-row {
     display: grid;
     grid-template-columns: 1fr auto;
-  }
-
-  .notice {
-    display: grid;
   }
 
 }

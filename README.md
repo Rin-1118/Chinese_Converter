@@ -70,14 +70,13 @@ npm run build
 
 履歴はブラウザの `localStorage` に保存されます。別ブラウザや別端末には自動同期されません。
 
-## 出典・依存関係
+## 依存関係
 
-- MyMemory Translation API: 日本語から中国語への翻訳に使用。API仕様では `q` に翻訳対象、`langpair` に言語ペアを指定し、`q` はUTF-8で最大500バイトとされています。Docs: <https://mymemory.translated.net/doc/spec.php>
-- Google Cloud Translation API: Google公式の翻訳API。公式APIを使う場合は Google Cloud 側の設定とAPI利用が必要です。Docs: <https://docs.cloud.google.com/translate/docs/reference/rest>
-- OpenCC JS `opencc-js` 1.3.1: 簡体字・繁体字・日本漢字系の変換に使用。Repository: <https://github.com/nk2028/opencc-js>
-- pinyin-pro `pinyin-pro` 3.28.1: 漢字から拼音への変換に使用。Repository: <https://github.com/zh-lx/pinyin-pro> / Website: <https://pinyin-pro.cn>
-- Vite `vite` 8.0.16: ローカル開発・ビルドに使用。Website: <https://vite.dev>
-- Lucide `lucide` 1.21.0: UIアイコンに使用。Website: <https://lucide.dev>
+- MyMemory Translation API: 日本語から中国語への翻訳に使用。
+- OpenCC JS `opencc-js` 1.3.1: 簡体字・繁体字・日本漢字系の変換に使用。
+- pinyin-pro `pinyin-pro` 3.28.1: 漢字から拼音への変換に使用。
+- Vite `vite` 8.0.16: ローカル開発・ビルドに使用。
+- Lucide `lucide` 1.21.0: UIアイコンに使用。
 
 依存関係のバージョンは `package.json` を確認してください。
 
