@@ -7,6 +7,12 @@
 
 ## 閲覧方法
 
+公開ページ:
+
+```text
+https://rin-1118.github.io/Chinese_Converter/
+```
+
 開発中に見る場合は、ブラウザで次を開きます。
 
 ```text
