@@ -54,11 +54,11 @@ document.querySelector("#app").innerHTML = `
             <p>日本語文は翻訳APIで中国語へ変換します。</p>
           </div>
           <div class="segmented" role="tablist" aria-label="変換モード">
-            <button class="segment" type="button" data-mode-button="translate" role="tab">
+            <button class="segment" type="button" id="tab-translate" data-mode-button="translate" role="tab" aria-controls="panel-translate">
               <i data-lucide="search"></i>
               <span>日本語</span>
             </button>
-            <button class="segment" type="button" data-mode-button="hanzi" role="tab">
+            <button class="segment" type="button" id="tab-hanzi" data-mode-button="hanzi" role="tab" aria-controls="panel-hanzi">
               <i data-lucide="languages"></i>
               <span>漢字</span>
             </button>
@@ -70,31 +70,34 @@ document.querySelector("#app").innerHTML = `
           <span>日本語翻訳は MyMemory Translation API を使います。Google公式翻訳APIではありません。</span>
         </div>
 
-        <section class="mode-panel" data-panel="translate" aria-labelledby="translate-title">
+        <section class="mode-panel" id="panel-translate" data-panel="translate" role="tabpanel" aria-labelledby="tab-translate">
           <div class="field-head">
-            <label id="translate-title" for="translate-input">日本語テキスト</label>
+            <div>
+              <label id="translate-title" for="translate-input">日本語テキスト</label>
+              <p id="translate-byte-count" class="field-note">0 / 500バイト</p>
+            </div>
             <button class="icon-button subtle" type="button" id="translate-clear" aria-label="入力を消去" title="入力を消去">
               <i data-lucide="x"></i>
             </button>
           </div>
-          <textarea id="translate-input" rows="6" placeholder="例: 明日は大学で化学の実験があります。"></textarea>
+          <textarea id="translate-input" rows="6" placeholder="例: 明日は大学で化学の実験があります。" aria-describedby="translate-byte-count translation-status"></textarea>
           <div class="action-row">
             <button class="primary-button" type="button" id="translate-run">
               <i data-lucide="search"></i>
               <span>翻訳</span>
             </button>
-            <button class="ghost-button" type="button" id="translation-save-history">
+            <button class="ghost-button" type="button" id="translation-save-history" disabled>
               <i data-lucide="history"></i>
-              <span>履歴</span>
+              <span>保存</span>
             </button>
           </div>
-          <p id="translation-status" class="status-line">日本語を入力して翻訳を押してください。</p>
+          <p id="translation-status" class="status-line" role="status">日本語を入力して翻訳を押してください。</p>
 
           <div class="results-grid" aria-live="polite">
             <article class="result-card">
               <div class="result-head">
                 <span>簡体字中国語</span>
-                <button class="icon-button" type="button" data-copy="translation" aria-label="翻訳結果をコピー" title="翻訳結果をコピー">
+                <button class="icon-button" type="button" data-copy="translation" aria-label="翻訳結果をコピー" title="翻訳結果をコピー" disabled>
                   <i data-lucide="clipboard"></i>
                 </button>
               </div>
@@ -103,7 +106,7 @@ document.querySelector("#app").innerHTML = `
             <article class="result-card">
               <div class="result-head">
                 <span>拼音</span>
-                <button class="icon-button" type="button" data-copy="translation-pinyin" aria-label="拼音をコピー" title="拼音をコピー">
+                <button class="icon-button" type="button" data-copy="translation-pinyin" aria-label="拼音をコピー" title="拼音をコピー" disabled>
                   <i data-lucide="clipboard"></i>
                 </button>
               </div>
@@ -113,7 +116,7 @@ document.querySelector("#app").innerHTML = `
           </div>
         </section>
 
-        <section class="mode-panel" data-panel="hanzi" aria-labelledby="hanzi-title">
+        <section class="mode-panel" id="panel-hanzi" data-panel="hanzi" role="tabpanel" aria-labelledby="tab-hanzi">
           <div class="field-head">
             <label id="hanzi-title" for="hanzi-input">漢字・中国語文</label>
             <button class="icon-button subtle" type="button" id="hanzi-clear" aria-label="入力を消去" title="入力を消去">
@@ -126,9 +129,9 @@ document.querySelector("#app").innerHTML = `
               <i data-lucide="languages"></i>
               <span>変換</span>
             </button>
-            <button class="ghost-button" type="button" id="hanzi-save-history">
+            <button class="ghost-button" type="button" id="hanzi-save-history" disabled>
               <i data-lucide="history"></i>
-              <span>履歴</span>
+              <span>保存</span>
             </button>
           </div>
 
@@ -136,7 +139,7 @@ document.querySelector("#app").innerHTML = `
             <article class="result-card">
               <div class="result-head">
                 <span>簡体字</span>
-                <button class="icon-button" type="button" data-copy="simplified" aria-label="簡体字をコピー" title="簡体字をコピー">
+                <button class="icon-button" type="button" data-copy="simplified" aria-label="簡体字をコピー" title="簡体字をコピー" disabled>
                   <i data-lucide="clipboard"></i>
                 </button>
               </div>
@@ -145,7 +148,7 @@ document.querySelector("#app").innerHTML = `
             <article class="result-card">
               <div class="result-head">
                 <span>拼音</span>
-                <button class="icon-button" type="button" data-copy="pinyin" aria-label="拼音をコピー" title="拼音をコピー">
+                <button class="icon-button" type="button" data-copy="pinyin" aria-label="拼音をコピー" title="拼音をコピー" disabled>
                   <i data-lucide="clipboard"></i>
                 </button>
               </div>
@@ -163,7 +166,7 @@ document.querySelector("#app").innerHTML = `
               <h2 id="history-title">履歴</h2>
               <p>最近の翻訳と変換</p>
             </div>
-            <button class="icon-button danger" type="button" id="clear-history" aria-label="履歴を削除" title="履歴を削除">
+            <button class="icon-button danger" type="button" id="clear-history" aria-label="すべての履歴を削除" title="すべての履歴を削除">
               <i data-lucide="trash-2"></i>
             </button>
           </div>
@@ -179,15 +182,19 @@ const elements = {
   modeButtons: [...document.querySelectorAll("[data-mode-button]")],
   translateInput: document.querySelector("#translate-input"),
   translateButton: document.querySelector("#translate-run"),
+  translateByteCount: document.querySelector("#translate-byte-count"),
+  translationSaveButton: document.querySelector("#translation-save-history"),
   translationStatus: document.querySelector("#translation-status"),
   translationSimplified: document.querySelector("#translation-simplified"),
   translationPinyin: document.querySelector("#translation-pinyin"),
   translationPinyinNumber: document.querySelector("#translation-pinyin-number"),
   hanziInput: document.querySelector("#hanzi-input"),
+  hanziSaveButton: document.querySelector("#hanzi-save-history"),
   hanziSimplified: document.querySelector("#hanzi-simplified"),
   hanziPinyin: document.querySelector("#hanzi-pinyin"),
   hanziPinyinNumber: document.querySelector("#hanzi-pinyin-number"),
-  historyList: document.querySelector("#history-list")
+  historyList: document.querySelector("#history-list"),
+  copyButtons: [...document.querySelectorAll("[data-copy]")]
 };
 
 wireEvents();
@@ -197,8 +204,10 @@ refreshIcons();
 function wireEvents() {
   elements.modeButtons.forEach((button) => {
     button.addEventListener("click", () => setMode(button.dataset.modeButton));
+    button.addEventListener("keydown", handleTabKeydown);
   });
 
+  elements.translateInput.addEventListener("input", updateTranslateByteCount);
   elements.translateButton.addEventListener("click", () => translateJapanese(true));
   document.querySelector("#translation-save-history").addEventListener("click", () => {
     if (state.lastTranslationResult) {
@@ -208,12 +217,14 @@ function wireEvents() {
         detail: state.lastTranslationResult.simplified,
         payload: state.lastTranslationResult
       });
+      elements.translationStatus.textContent = "履歴に保存しました。";
     }
   });
   document.querySelector("#translate-clear").addEventListener("click", () => {
     elements.translateInput.value = "";
     state.lastTranslationResult = null;
     renderTranslationEmpty();
+    updateTranslateByteCount();
     elements.translateInput.focus();
   });
 
@@ -240,11 +251,14 @@ function wireEvents() {
     elements.hanziInput.focus();
   });
 
-  document.querySelectorAll("[data-copy]").forEach((button) => {
+  elements.copyButtons.forEach((button) => {
     button.addEventListener("click", () => copyResult(button.dataset.copy));
   });
 
   document.querySelector("#clear-history").addEventListener("click", () => {
+    if (state.history.length === 0) return;
+    const shouldClear = window.confirm("すべての履歴を削除しますか？");
+    if (!shouldClear) return;
     state.history = [];
     saveJSON(STORAGE_KEYS.history, state.history);
     renderHistory();
@@ -252,11 +266,44 @@ function wireEvents() {
   elements.historyList.addEventListener("click", handleHistoryClick);
 }
 
+function handleTabKeydown(event) {
+  const order = ["translate", "hanzi"];
+  const currentIndex = order.indexOf(state.mode);
+  let nextMode = null;
+
+  if (event.key === "ArrowRight") {
+    nextMode = order[(currentIndex + 1) % order.length];
+  } else if (event.key === "ArrowLeft") {
+    nextMode = order[(currentIndex - 1 + order.length) % order.length];
+  } else if (event.key === "Home") {
+    nextMode = order[0];
+  } else if (event.key === "End") {
+    nextMode = order[order.length - 1];
+  }
+
+  if (!nextMode) return;
+  event.preventDefault();
+  setMode(nextMode);
+  document.querySelector(`[data-mode-button="${nextMode}"]`)?.focus();
+}
+
 function renderAll() {
   setMode(state.mode);
+  updateTranslateByteCount();
   renderTranslationEmpty();
   renderHanziConversion(false);
   renderHistory();
+}
+
+function updateTranslateByteCount() {
+  const bytes = new Blob([elements.translateInput.value.trim()]).size;
+  const overBy = bytes - MYMEMORY_MAX_BYTES;
+  const isOverLimit = overBy > 0;
+  elements.translateByteCount.textContent = isOverLimit
+    ? `${bytes} / ${MYMEMORY_MAX_BYTES}バイト（${overBy}バイト超過）`
+    : `${bytes} / ${MYMEMORY_MAX_BYTES}バイト`;
+  elements.translateByteCount.classList.toggle("over-limit", isOverLimit);
+  elements.translateInput.setAttribute("aria-invalid", String(isOverLimit));
 }
 
 function setMode(mode) {
@@ -359,10 +406,16 @@ function setTranslationLoading(isLoading) {
 
 function renderTranslationEmpty() {
   elements.translationStatus.textContent = "日本語を入力して翻訳を押してください。";
+  elements.translationSaveButton.disabled = true;
   renderTranslationResult("", "", "");
 }
 
 function renderTranslationResult(simplified, marked, numbered) {
+  const hasResult = Boolean(simplified);
+  elements.translationSaveButton.disabled = !hasResult;
+  setCopyButtonState("translation", hasResult);
+  setCopyButtonState("translation-pinyin", hasResult);
+
   if (!simplified) {
     elements.translationSimplified.textContent = "翻訳すると表示されます";
     elements.translationSimplified.classList.add("muted");
@@ -383,6 +436,9 @@ function renderHanziConversion(shouldSave) {
   const input = elements.hanziInput.value.trim();
   if (!input) {
     state.lastHanziResult = null;
+    elements.hanziSaveButton.disabled = true;
+    setCopyButtonState("simplified", false);
+    setCopyButtonState("pinyin", false);
     elements.hanziSimplified.textContent = "入力すると表示されます";
     elements.hanziSimplified.classList.add("muted");
     elements.hanziPinyin.textContent = "入力すると表示されます";
@@ -407,6 +463,9 @@ function renderHanziConversion(shouldSave) {
   elements.hanziPinyin.textContent = marked;
   elements.hanziPinyin.classList.remove("muted");
   elements.hanziPinyinNumber.textContent = numbered;
+  elements.hanziSaveButton.disabled = false;
+  setCopyButtonState("simplified", true);
+  setCopyButtonState("pinyin", true);
 
   if (shouldSave) {
     addHistory({
@@ -449,6 +508,13 @@ function renderHistory() {
   elements.historyList.replaceChildren(...items);
 }
 
+function setCopyButtonState(kind, isEnabled) {
+  const button = elements.copyButtons.find((item) => item.dataset.copy === kind);
+  if (button) {
+    button.disabled = !isEnabled;
+  }
+}
+
 function handleHistoryClick(event) {
   const button = event.target.closest("[data-history-id]");
   if (!button) return;
@@ -463,6 +529,7 @@ function handleHistoryClick(event) {
   } else {
     setMode("translate");
     elements.translateInput.value = entry.payload.input;
+    updateTranslateByteCount();
     state.lastTranslationResult = entry.payload;
     elements.translationStatus.textContent = "履歴から復元しました。";
     renderTranslationResult(entry.payload.simplified, entry.payload.pinyin, entry.payload.pinyinNumber);
@@ -520,6 +587,7 @@ async function copyText(text) {
 function flashCopied() {
   const badge = document.createElement("div");
   badge.className = "copy-toast";
+  badge.setAttribute("role", "status");
   badge.innerHTML = `<i data-lucide="check"></i><span>コピーしました</span>`;
   document.body.append(badge);
   refreshIcons();
