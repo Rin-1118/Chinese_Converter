@@ -53,12 +53,19 @@ pnpm run dev
 pnpm run build
 ```
 
+テスト実行:
+
+```bash
+pnpm test
+```
+
 npm が入っている環境なら、同じ `package.json` から次でも動かせます。
 
 ```bash
 npm install
 npm run dev
 npm run build
+npm test
 ```
 
 ## 使い方

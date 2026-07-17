@@ -1,6 +1,13 @@
 import "./styles.css";
-import * as OpenCC from "opencc-js";
-import { pinyin } from "pinyin-pro";
+import {
+  CHINESE_TARGET_LANGUAGES,
+  formatHanziHistoryDetail,
+  getSpeechLanguage,
+  getTargetLanguage,
+  shouldRunShortcut,
+  toPinyin,
+  toSimplified
+} from "./conversion.js";
 import { Check, Clipboard, History, Home, Languages, Moon, Search, Sun, Trash2, Volume2, X, createIcons } from "lucide";
 
 const STORAGE_KEYS = {
@@ -17,21 +24,6 @@ const MYMEMORY_LANGPAIRS = {
   chineseSource: "zh-CN"
 };
 const MYMEMORY_MAX_BYTES = 500;
-
-const CHINESE_TARGET_LANGUAGES = [
-  { code: "ja", label: "日本語", detail: "Japanese" },
-  { code: "en", label: "English", detail: "英語" },
-  { code: "ko", label: "한국어", detail: "韓国語" },
-  { code: "fr", label: "Français", detail: "フランス語" },
-  { code: "es", label: "Español", detail: "スペイン語" },
-  { code: "de", label: "Deutsch", detail: "ドイツ語" }
-];
-
-const converters = [
-  OpenCC.Converter({ from: "jp", to: "cn" }),
-  OpenCC.Converter({ from: "tw", to: "cn" }),
-  OpenCC.Converter({ from: "hk", to: "cn" })
-];
 
 const iconSet = {
   Check,
@@ -400,7 +392,7 @@ function handleTabKeydown(event) {
 }
 
 function handleRunShortcut(event, run, isRunning) {
-  if (!event.shiftKey || event.key !== "Enter" || event.isComposing || isRunning) return;
+  if (!shouldRunShortcut(event, isRunning)) return;
   event.preventDefault();
   run();
 }
@@ -458,7 +450,7 @@ function renderLanguageSelection() {
 }
 
 function updateHanziTargetText() {
-  const language = getTargetLanguage();
+  const language = getTargetLanguage(state.targetLanguage);
   elements.hanziTargetNote.textContent = `翻訳先: ${language.label}`;
   elements.hanziMeaningLabel.textContent = `意味（${language.label}）`;
 }
@@ -644,7 +636,7 @@ async function renderHanziConversion(shouldTranslate) {
     return;
   }
 
-  const targetLanguage = getTargetLanguage();
+  const targetLanguage = getTargetLanguage(state.targetLanguage);
   const simplified = toSimplified(input);
   const marked = toPinyin(simplified, "symbol");
   const numbered = toPinyin(simplified, "num");
@@ -814,7 +806,7 @@ function handleHistoryClick(event) {
         ...state.lastHanziResult,
         meaning: entry.payload.meaning,
         targetLanguage: entry.payload.targetLanguage || state.targetLanguage,
-        targetLanguageLabel: entry.payload.targetLanguageLabel || getTargetLanguage().label
+        targetLanguageLabel: entry.payload.targetLanguageLabel || getTargetLanguage(state.targetLanguage).label
       };
       updateHanziTargetText();
       elements.hanziStatus.textContent = `履歴から復元しました（${state.lastHanziResult.targetLanguageLabel}）。`;
@@ -909,45 +901,10 @@ function addHistory(entry) {
   renderHistory();
 }
 
-function toSimplified(text) {
-  return converters.reduce((current, converter) => converter(current), text);
-}
-
-function getTargetLanguage(languageCode = state.targetLanguage) {
-  return CHINESE_TARGET_LANGUAGES.find((language) => language.code === languageCode) || CHINESE_TARGET_LANGUAGES[0];
-}
-
-function getSpeechLanguage(languageCode) {
-  const speechLanguages = {
-    ja: "ja-JP",
-    en: "en-US",
-    ko: "ko-KR",
-    fr: "fr-FR",
-    es: "es-ES",
-    de: "de-DE"
-  };
-  return speechLanguages[languageCode] || "zh-CN";
-}
-
 function findSpeechVoice(language) {
   return window.speechSynthesis
     .getVoices()
     .find((voice) => voice.lang === language || voice.lang.toLowerCase().startsWith(language.toLowerCase()));
-}
-
-function formatHanziHistoryDetail(result) {
-  if (result.meaning) {
-    return `${result.meaning} / ${result.pinyin}`;
-  }
-  return result.pinyin;
-}
-
-function toPinyin(text, toneType) {
-  return pinyin(text, {
-    toneType,
-    type: "array",
-    nonZh: "consecutive"
-  }).join(" ");
 }
 
 async function copyText(text) {
