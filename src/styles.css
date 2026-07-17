@@ -162,7 +162,7 @@ h3 {
 
 .page-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
   margin-bottom: 16px;
   border: 1px solid var(--line);
@@ -201,6 +201,11 @@ h3 {
 }
 
 .history-page .support-card {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.language-page .support-card {
   max-width: 760px;
   margin: 0 auto;
 }
@@ -421,6 +426,10 @@ input {
   padding: 14px;
 }
 
+.result-card.wide {
+  grid-column: 1 / -1;
+}
+
 .result-head {
   display: flex;
   align-items: center;
@@ -430,6 +439,18 @@ input {
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 850;
+}
+
+.result-head > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.result-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
 }
 
 .result-text {
@@ -474,6 +495,54 @@ input {
 
 .support-card {
   padding: 16px;
+}
+
+.language-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.language-option {
+  display: flex;
+  width: 100%;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+}
+
+.language-option strong,
+.language-option small {
+  display: block;
+}
+
+.language-option small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.language-option .lucide {
+  opacity: 0;
+}
+
+.language-option.active {
+  border-color: var(--primary);
+  background: var(--surface-raised);
+  color: var(--primary-dark);
+}
+
+.language-option.active .lucide {
+  opacity: 1;
 }
 
 .history-item {
@@ -578,7 +647,7 @@ input {
   }
 
   .page-tabs {
-    max-width: 360px;
+    max-width: 520px;
   }
 }
 
@@ -607,6 +676,19 @@ input {
     grid-template-columns: 1fr auto;
   }
 
+}
+
+@media (max-width: 420px) {
+  .page-tab {
+    flex-direction: column;
+    gap: 3px;
+    font-size: 0.76rem;
+  }
+
+  .page-tab .lucide {
+    width: 16px;
+    height: 16px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

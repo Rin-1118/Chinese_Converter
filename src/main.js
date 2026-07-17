@@ -1,18 +1,31 @@
 import "./styles.css";
 import * as OpenCC from "opencc-js";
 import { pinyin } from "pinyin-pro";
-import { Check, Clipboard, History, Home, Languages, Moon, Search, Sun, Trash2, X, createIcons } from "lucide";
+import { Check, Clipboard, History, Home, Languages, Moon, Search, Sun, Trash2, Volume2, X, createIcons } from "lucide";
 
 const STORAGE_KEYS = {
   history: "chinese-converter.history.v2",
   mode: "chinese-converter.mode.v2",
   page: "chinese-converter.page.v1",
+  targetLanguage: "chinese-converter.target-language.v1",
   theme: "chinese-converter.theme.v1"
 };
 
 const MYMEMORY_ENDPOINT = "https://api.mymemory.translated.net/get";
-const MYMEMORY_LANGPAIR = "ja|zh-CN";
+const MYMEMORY_LANGPAIRS = {
+  japaneseToChinese: "ja|zh-CN",
+  chineseSource: "zh-CN"
+};
 const MYMEMORY_MAX_BYTES = 500;
+
+const CHINESE_TARGET_LANGUAGES = [
+  { code: "ja", label: "日本語", detail: "Japanese" },
+  { code: "en", label: "English", detail: "英語" },
+  { code: "ko", label: "한국어", detail: "韓国語" },
+  { code: "fr", label: "Français", detail: "フランス語" },
+  { code: "es", label: "Español", detail: "スペイン語" },
+  { code: "de", label: "Deutsch", detail: "ドイツ語" }
+];
 
 const converters = [
   OpenCC.Converter({ from: "jp", to: "cn" }),
@@ -30,6 +43,7 @@ const iconSet = {
   Search,
   Sun,
   Trash2,
+  Volume2,
   X
 };
 
@@ -37,11 +51,26 @@ const state = {
   mode: loadJSON(STORAGE_KEYS.mode, "translate"),
   page: loadJSON(STORAGE_KEYS.page, "home"),
   theme: loadJSON(STORAGE_KEYS.theme, "light"),
+  targetLanguage: loadJSON(STORAGE_KEYS.targetLanguage, "ja"),
   history: loadJSON(STORAGE_KEYS.history, []),
   lastHanziResult: null,
   lastTranslationResult: null,
+  hanziRequestId: 0,
+  isHanziTranslating: false,
   isTranslating: false
 };
+
+const languageOptionMarkup = CHINESE_TARGET_LANGUAGES.map(
+  (language) => `
+    <button class="language-option" type="button" data-language-button="${language.code}" role="radio" aria-checked="false">
+      <span>
+        <strong>${language.label}</strong>
+        <small>${language.detail}</small>
+      </span>
+      <i data-lucide="check"></i>
+    </button>
+  `
+).join("");
 
 document.querySelector("#app").innerHTML = `
   <div class="app-shell">
@@ -63,6 +92,10 @@ document.querySelector("#app").innerHTML = `
         <i data-lucide="home"></i>
         <span>Home</span>
       </button>
+      <button class="page-tab" type="button" data-page-button="languages">
+        <i data-lucide="languages"></i>
+        <span>Languages</span>
+      </button>
       <button class="page-tab" type="button" data-page-button="history">
         <i data-lucide="history"></i>
         <span>History</span>
@@ -75,7 +108,7 @@ document.querySelector("#app").innerHTML = `
           <div class="tool-heading">
             <div>
               <h2 id="tool-title">変換</h2>
-              <p>日本語文は翻訳APIで中国語へ変換します。</p>
+              <p>日本語と中国語を翻訳・変換します。</p>
             </div>
             <div class="segmented" role="tablist" aria-label="変換モード">
               <button class="segment" type="button" id="tab-translate" data-mode-button="translate" role="tab" aria-controls="panel-translate">
@@ -84,7 +117,7 @@ document.querySelector("#app").innerHTML = `
               </button>
               <button class="segment" type="button" id="tab-hanzi" data-mode-button="hanzi" role="tab" aria-controls="panel-hanzi">
                 <i data-lucide="languages"></i>
-                <span>漢字</span>
+                <span>中国語</span>
               </button>
             </div>
           </div>
@@ -116,9 +149,14 @@ document.querySelector("#app").innerHTML = `
               <article class="result-card">
                 <div class="result-head">
                   <span>簡体字中国語</span>
-                  <button class="icon-button" type="button" data-copy="translation" aria-label="翻訳結果をコピー" title="翻訳結果をコピー" disabled>
-                    <i data-lucide="clipboard"></i>
-                  </button>
+                  <div class="result-actions">
+                    <button class="icon-button" type="button" data-speak="translation-chinese" aria-label="中国語を発音" title="中国語を発音" disabled>
+                      <i data-lucide="volume-2"></i>
+                    </button>
+                    <button class="icon-button" type="button" data-copy="translation" aria-label="翻訳結果をコピー" title="翻訳結果をコピー" disabled>
+                      <i data-lucide="clipboard"></i>
+                    </button>
+                  </div>
                 </div>
                 <p id="translation-simplified" class="result-text muted">翻訳すると表示されます</p>
               </article>
@@ -137,12 +175,15 @@ document.querySelector("#app").innerHTML = `
 
           <section class="mode-panel" id="panel-hanzi" data-panel="hanzi" role="tabpanel" aria-labelledby="tab-hanzi">
             <div class="field-head">
-              <label id="hanzi-title" for="hanzi-input">漢字・中国語文</label>
+              <div>
+                <label id="hanzi-title" for="hanzi-input">中国語テキスト</label>
+                <p id="hanzi-target-note" class="field-note">翻訳先: 日本語</p>
+              </div>
               <button class="icon-button subtle" type="button" id="hanzi-clear" aria-label="入力を消去" title="入力を消去">
                 <i data-lucide="x"></i>
               </button>
             </div>
-            <textarea id="hanzi-input" rows="6" placeholder="漢字・繁體字・中文を入力"></textarea>
+            <textarea id="hanzi-input" rows="6" placeholder="例: 我想学习中文。"></textarea>
             <div class="action-row">
               <button class="primary-button" type="button" id="hanzi-convert">
                 <i data-lucide="languages"></i>
@@ -153,14 +194,20 @@ document.querySelector("#app").innerHTML = `
                 <span>保存</span>
               </button>
             </div>
+            <p id="hanzi-status" class="status-line" role="status">中国語を入力して変換を押してください。</p>
 
             <div class="results-grid" aria-live="polite">
               <article class="result-card">
                 <div class="result-head">
                   <span>簡体字</span>
-                  <button class="icon-button" type="button" data-copy="simplified" aria-label="簡体字をコピー" title="簡体字をコピー" disabled>
-                    <i data-lucide="clipboard"></i>
-                  </button>
+                  <div class="result-actions">
+                    <button class="icon-button" type="button" data-speak="hanzi-chinese" aria-label="中国語を発音" title="中国語を発音" disabled>
+                      <i data-lucide="volume-2"></i>
+                    </button>
+                    <button class="icon-button" type="button" data-copy="simplified" aria-label="簡体字をコピー" title="簡体字をコピー" disabled>
+                      <i data-lucide="clipboard"></i>
+                    </button>
+                  </div>
                 </div>
                 <p id="hanzi-simplified" class="result-text muted">入力すると表示されます</p>
               </article>
@@ -174,9 +221,37 @@ document.querySelector("#app").innerHTML = `
                 <p id="hanzi-pinyin" class="result-text muted">入力すると表示されます</p>
                 <p id="hanzi-pinyin-number" class="tone-text"></p>
               </article>
+              <article class="result-card wide">
+                <div class="result-head">
+                  <span id="hanzi-meaning-label">意味（日本語）</span>
+                  <div class="result-actions">
+                    <button class="icon-button" type="button" data-speak="hanzi-meaning" aria-label="意味を発音" title="意味を発音" disabled>
+                      <i data-lucide="volume-2"></i>
+                    </button>
+                    <button class="icon-button" type="button" data-copy="hanzi-meaning" aria-label="意味をコピー" title="意味をコピー" disabled>
+                      <i data-lucide="clipboard"></i>
+                    </button>
+                  </div>
+                </div>
+                <p id="hanzi-meaning" class="result-text muted">変換すると表示されます</p>
+              </article>
             </div>
           </section>
         </section>
+      </section>
+
+      <section class="app-page language-page" data-page="languages" aria-labelledby="language-title">
+        <article class="support-card" aria-labelledby="language-title">
+          <div class="support-head">
+            <div>
+              <h2 id="language-title">言語選択</h2>
+              <p>中国語入力の翻訳先</p>
+            </div>
+          </div>
+          <div class="language-list" role="radiogroup" aria-labelledby="language-title">
+            ${languageOptionMarkup}
+          </div>
+        </article>
       </section>
 
       <section class="app-page history-page" data-page="history" aria-labelledby="history-title">
@@ -200,6 +275,7 @@ document.querySelector("#app").innerHTML = `
 const elements = {
   pages: [...document.querySelectorAll("[data-page]")],
   pageButtons: [...document.querySelectorAll("[data-page-button]")],
+  languageButtons: [...document.querySelectorAll("[data-language-button]")],
   panels: [...document.querySelectorAll("[data-panel]")],
   modeButtons: [...document.querySelectorAll("[data-mode-button]")],
   themeToggle: document.querySelector("#theme-toggle"),
@@ -212,12 +288,18 @@ const elements = {
   translationPinyin: document.querySelector("#translation-pinyin"),
   translationPinyinNumber: document.querySelector("#translation-pinyin-number"),
   hanziInput: document.querySelector("#hanzi-input"),
+  hanziButton: document.querySelector("#hanzi-convert"),
   hanziSaveButton: document.querySelector("#hanzi-save-history"),
+  hanziTargetNote: document.querySelector("#hanzi-target-note"),
+  hanziStatus: document.querySelector("#hanzi-status"),
   hanziSimplified: document.querySelector("#hanzi-simplified"),
   hanziPinyin: document.querySelector("#hanzi-pinyin"),
   hanziPinyinNumber: document.querySelector("#hanzi-pinyin-number"),
+  hanziMeaningLabel: document.querySelector("#hanzi-meaning-label"),
+  hanziMeaning: document.querySelector("#hanzi-meaning"),
   historyList: document.querySelector("#history-list"),
-  copyButtons: [...document.querySelectorAll("[data-copy]")]
+  copyButtons: [...document.querySelectorAll("[data-copy]")],
+  speakButtons: [...document.querySelectorAll("[data-speak]")]
 };
 
 wireEvents();
@@ -227,6 +309,9 @@ refreshIcons();
 function wireEvents() {
   elements.pageButtons.forEach((button) => {
     button.addEventListener("click", () => setPage(button.dataset.pageButton));
+  });
+  elements.languageButtons.forEach((button) => {
+    button.addEventListener("click", () => setTargetLanguage(button.dataset.languageButton));
   });
   elements.themeToggle.addEventListener("click", toggleTheme);
 
@@ -259,7 +344,7 @@ function wireEvents() {
   elements.hanziInput.addEventListener("input", () => {
     renderHanziConversion(false);
   });
-  document.querySelector("#hanzi-convert").addEventListener("click", () => {
+  elements.hanziButton.addEventListener("click", () => {
     renderHanziConversion(true);
   });
   document.querySelector("#hanzi-save-history").addEventListener("click", () => {
@@ -267,7 +352,7 @@ function wireEvents() {
       addHistory({
         type: "hanzi",
         title: state.lastHanziResult.input,
-        detail: state.lastHanziResult.simplified,
+        detail: formatHanziHistoryDetail(state.lastHanziResult),
         payload: state.lastHanziResult
       });
     }
@@ -281,6 +366,9 @@ function wireEvents() {
 
   elements.copyButtons.forEach((button) => {
     button.addEventListener("click", () => copyResult(button.dataset.copy));
+  });
+  elements.speakButtons.forEach((button) => {
+    button.addEventListener("click", () => speakResult(button.dataset.speak));
   });
 
   document.querySelector("#clear-history").addEventListener("click", () => {
@@ -318,6 +406,7 @@ function handleTabKeydown(event) {
 function renderAll() {
   setTheme(state.theme);
   setPage(state.page);
+  setTargetLanguage(state.targetLanguage, { preserveResult: true });
   setMode(state.mode);
   updateTranslateByteCount();
   renderTranslationEmpty();
@@ -326,7 +415,7 @@ function renderAll() {
 }
 
 function setPage(page) {
-  state.page = page === "history" ? "history" : "home";
+  state.page = page === "history" || page === "languages" ? page : "home";
   saveJSON(STORAGE_KEYS.page, state.page);
 
   elements.pageButtons.forEach((button) => {
@@ -343,6 +432,33 @@ function setPage(page) {
   elements.pages.forEach((pageElement) => {
     pageElement.hidden = pageElement.dataset.page !== state.page;
   });
+}
+
+function setTargetLanguage(languageCode, options = {}) {
+  const nextLanguage = getTargetLanguage(languageCode);
+  const didChange = state.targetLanguage !== nextLanguage.code;
+  state.targetLanguage = nextLanguage.code;
+  saveJSON(STORAGE_KEYS.targetLanguage, state.targetLanguage);
+  renderLanguageSelection();
+  updateHanziTargetText();
+
+  if (didChange && !options.preserveResult) {
+    renderHanziConversion(false);
+  }
+}
+
+function renderLanguageSelection() {
+  elements.languageButtons.forEach((button) => {
+    const isSelected = button.dataset.languageButton === state.targetLanguage;
+    button.classList.toggle("active", isSelected);
+    button.setAttribute("aria-checked", String(isSelected));
+  });
+}
+
+function updateHanziTargetText() {
+  const language = getTargetLanguage();
+  elements.hanziTargetNote.textContent = `翻訳先: ${language.label}`;
+  elements.hanziMeaningLabel.textContent = `意味（${language.label}）`;
 }
 
 function toggleTheme() {
@@ -410,7 +526,7 @@ async function translateJapanese(shouldSave) {
 
   setTranslationLoading(true);
   try {
-    const translated = await requestTranslation(input);
+    const translated = await requestTranslation(input, MYMEMORY_LANGPAIRS.japaneseToChinese);
     const simplified = toSimplified(translated);
     const marked = toPinyin(simplified, "symbol");
     const numbered = toPinyin(simplified, "num");
@@ -442,10 +558,10 @@ async function translateJapanese(shouldSave) {
   }
 }
 
-async function requestTranslation(text) {
+async function requestTranslation(text, langpair) {
   const params = new URLSearchParams({
     q: text,
-    langpair: MYMEMORY_LANGPAIR,
+    langpair,
     mt: "1"
   });
   const response = await fetch(`${MYMEMORY_ENDPOINT}?${params.toString()}`);
@@ -486,6 +602,7 @@ function renderTranslationResult(simplified, marked, numbered) {
   elements.translationSaveButton.disabled = !hasResult;
   setCopyButtonState("translation", hasResult);
   setCopyButtonState("translation-pinyin", hasResult);
+  setSpeakButtonState("translation-chinese", hasResult);
 
   if (!simplified) {
     elements.translationSimplified.textContent = "翻訳すると表示されます";
@@ -503,30 +620,48 @@ function renderTranslationResult(simplified, marked, numbered) {
   elements.translationPinyinNumber.textContent = numbered;
 }
 
-function renderHanziConversion(shouldSave) {
+async function renderHanziConversion(shouldTranslate) {
+  if (!shouldTranslate) {
+    state.hanziRequestId += 1;
+    setHanziLoading(false);
+  }
+
   const input = elements.hanziInput.value.trim();
   if (!input) {
     state.lastHanziResult = null;
     elements.hanziSaveButton.disabled = true;
     setCopyButtonState("simplified", false);
     setCopyButtonState("pinyin", false);
+    setCopyButtonState("hanzi-meaning", false);
+    setSpeakButtonState("hanzi-chinese", false);
+    setSpeakButtonState("hanzi-meaning", false);
+    elements.hanziStatus.textContent = "中国語を入力して変換を押してください。";
     elements.hanziSimplified.textContent = "入力すると表示されます";
     elements.hanziSimplified.classList.add("muted");
     elements.hanziPinyin.textContent = "入力すると表示されます";
     elements.hanziPinyin.classList.add("muted");
     elements.hanziPinyinNumber.textContent = "";
+    renderHanziMeaning("");
     return;
   }
 
+  const targetLanguage = getTargetLanguage();
   const simplified = toSimplified(input);
   const marked = toPinyin(simplified, "symbol");
   const numbered = toPinyin(simplified, "num");
+  const previousMeaning =
+    state.lastHanziResult?.input === input && state.lastHanziResult?.targetLanguage === targetLanguage.code
+      ? state.lastHanziResult.meaning
+      : "";
 
   state.lastHanziResult = {
     input,
     simplified,
     pinyin: marked,
-    pinyinNumber: numbered
+    pinyinNumber: numbered,
+    targetLanguage: targetLanguage.code,
+    targetLanguageLabel: targetLanguage.label,
+    meaning: previousMeaning || ""
   };
 
   elements.hanziSimplified.textContent = simplified;
@@ -537,15 +672,86 @@ function renderHanziConversion(shouldSave) {
   elements.hanziSaveButton.disabled = false;
   setCopyButtonState("simplified", true);
   setCopyButtonState("pinyin", true);
+  setSpeakButtonState("hanzi-chinese", true);
+  renderHanziMeaning(state.lastHanziResult.meaning);
 
-  if (shouldSave) {
+  if (!shouldTranslate) {
+    elements.hanziStatus.textContent = state.lastHanziResult.meaning
+      ? `翻訳結果（${targetLanguage.label}）`
+      : "変換を押すと意味を表示します。";
+    return;
+  }
+
+  if (new Blob([simplified]).size > MYMEMORY_MAX_BYTES) {
+    elements.hanziStatus.textContent = "翻訳APIの制限により、500バイト以内に短くしてください。";
+    renderHanziMeaning("");
+    return;
+  }
+
+  const requestId = state.hanziRequestId + 1;
+  state.hanziRequestId = requestId;
+  setHanziLoading(true);
+
+  try {
+    const meaning = await requestTranslation(
+      simplified,
+      `${MYMEMORY_LANGPAIRS.chineseSource}|${targetLanguage.code}`
+    );
+    if (requestId !== state.hanziRequestId) return;
+
+    state.lastHanziResult = {
+      ...state.lastHanziResult,
+      input,
+      simplified,
+      pinyin: marked,
+      pinyinNumber: numbered,
+      targetLanguage: targetLanguage.code,
+      targetLanguageLabel: targetLanguage.label,
+      meaning
+    };
+
+    elements.hanziStatus.textContent = `翻訳結果（${targetLanguage.label}）`;
+    renderHanziMeaning(meaning);
+
     addHistory({
       type: "hanzi",
       title: input,
-      detail: simplified,
+      detail: formatHanziHistoryDetail(state.lastHanziResult),
       payload: state.lastHanziResult
     });
+  } catch (error) {
+    if (requestId !== state.hanziRequestId) return;
+    elements.hanziStatus.textContent = error instanceof Error ? error.message : "翻訳に失敗しました。";
+    renderHanziMeaning("");
+  } finally {
+    if (requestId === state.hanziRequestId) {
+      setHanziLoading(false);
+    }
   }
+}
+
+function setHanziLoading(isLoading) {
+  state.isHanziTranslating = isLoading;
+  elements.hanziButton.disabled = isLoading;
+  elements.hanziButton.querySelector("span").textContent = isLoading ? "翻訳中" : "変換";
+  if (isLoading) {
+    elements.hanziStatus.textContent = "翻訳中...";
+  }
+}
+
+function renderHanziMeaning(meaning) {
+  const hasMeaning = Boolean(meaning);
+  setCopyButtonState("hanzi-meaning", hasMeaning);
+  setSpeakButtonState("hanzi-meaning", hasMeaning);
+
+  if (!hasMeaning) {
+    elements.hanziMeaning.textContent = "変換すると表示されます";
+    elements.hanziMeaning.classList.add("muted");
+    return;
+  }
+
+  elements.hanziMeaning.textContent = meaning;
+  elements.hanziMeaning.classList.remove("muted");
 }
 
 function renderHistory() {
@@ -571,7 +777,7 @@ function renderHistory() {
       <strong></strong>
       <small></small>
     `;
-    button.querySelector(".history-type").textContent = entry.type === "hanzi" ? "漢字" : "翻訳";
+    button.querySelector(".history-type").textContent = entry.type === "hanzi" ? "中国語" : "翻訳";
     button.querySelector("strong").textContent = entry.title;
     button.querySelector("small").textContent = entry.detail;
     return button;
@@ -586,6 +792,13 @@ function setCopyButtonState(kind, isEnabled) {
   }
 }
 
+function setSpeakButtonState(kind, isEnabled) {
+  const button = elements.speakButtons.find((item) => item.dataset.speak === kind);
+  if (button) {
+    button.disabled = !isEnabled;
+  }
+}
+
 function handleHistoryClick(event) {
   const button = event.target.closest("[data-history-id]");
   if (!button) return;
@@ -595,8 +808,22 @@ function handleHistoryClick(event) {
   if (entry.type === "hanzi") {
     setPage("home");
     setMode("hanzi");
+    if (entry.payload.targetLanguage) {
+      setTargetLanguage(entry.payload.targetLanguage, { preserveResult: true });
+    }
     elements.hanziInput.value = entry.payload.input;
     renderHanziConversion(false);
+    if (entry.payload.meaning) {
+      state.lastHanziResult = {
+        ...state.lastHanziResult,
+        meaning: entry.payload.meaning,
+        targetLanguage: entry.payload.targetLanguage || state.targetLanguage,
+        targetLanguageLabel: entry.payload.targetLanguageLabel || getTargetLanguage().label
+      };
+      updateHanziTargetText();
+      elements.hanziStatus.textContent = `履歴から復元しました（${state.lastHanziResult.targetLanguageLabel}）。`;
+      renderHanziMeaning(entry.payload.meaning);
+    }
     elements.hanziInput.focus();
   } else {
     setPage("home");
@@ -618,8 +845,59 @@ function copyResult(kind) {
       ? result.simplified
       : kind === "translation-pinyin"
         ? result.pinyin
-        : result.pinyin;
+        : kind === "hanzi-meaning"
+          ? result.meaning
+          : result.pinyin;
   copyText(text);
+}
+
+function speakResult(kind) {
+  if (kind === "translation-chinese") {
+    speakText(state.lastTranslationResult?.simplified, "zh-CN", elements.translationStatus);
+    return;
+  }
+
+  if (kind === "hanzi-chinese") {
+    speakText(state.lastHanziResult?.simplified, "zh-CN", elements.hanziStatus);
+    return;
+  }
+
+  if (kind === "hanzi-meaning") {
+    const language = getTargetLanguage(state.lastHanziResult?.targetLanguage || state.targetLanguage);
+    speakText(state.lastHanziResult?.meaning, getSpeechLanguage(language.code), elements.hanziStatus);
+  }
+}
+
+function speakText(text, language, statusElement) {
+  if (!text) return;
+
+  if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+    statusElement.textContent = "このブラウザでは音声再生に対応していません。";
+    return;
+  }
+
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = language;
+  utterance.rate = language === "zh-CN" ? 0.88 : 0.94;
+  utterance.pitch = 1;
+
+  const voice = findSpeechVoice(language);
+  if (voice) {
+    utterance.voice = voice;
+  }
+
+  utterance.onstart = () => {
+    statusElement.textContent = "発音中...";
+  };
+  utterance.onend = () => {
+    statusElement.textContent = "発音しました。";
+  };
+  utterance.onerror = () => {
+    statusElement.textContent = "音声再生に失敗しました。";
+  };
+
+  window.speechSynthesis.speak(utterance);
 }
 
 function addHistory(entry) {
@@ -637,6 +915,35 @@ function addHistory(entry) {
 
 function toSimplified(text) {
   return converters.reduce((current, converter) => converter(current), text);
+}
+
+function getTargetLanguage(languageCode = state.targetLanguage) {
+  return CHINESE_TARGET_LANGUAGES.find((language) => language.code === languageCode) || CHINESE_TARGET_LANGUAGES[0];
+}
+
+function getSpeechLanguage(languageCode) {
+  const speechLanguages = {
+    ja: "ja-JP",
+    en: "en-US",
+    ko: "ko-KR",
+    fr: "fr-FR",
+    es: "es-ES",
+    de: "de-DE"
+  };
+  return speechLanguages[languageCode] || "zh-CN";
+}
+
+function findSpeechVoice(language) {
+  return window.speechSynthesis
+    .getVoices()
+    .find((voice) => voice.lang === language || voice.lang.toLowerCase().startsWith(language.toLowerCase()));
+}
+
+function formatHanziHistoryDetail(result) {
+  if (result.meaning) {
+    return `${result.meaning} / ${result.simplified}`;
+  }
+  return result.simplified;
 }
 
 function toPinyin(text, toneType) {
