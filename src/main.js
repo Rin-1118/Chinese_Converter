@@ -76,8 +76,8 @@ document.querySelector("#app").innerHTML = `
   <div class="app-shell">
     <header class="app-header">
       <div>
-        <p class="eyebrow">Chinese-Japanese Converter</p>
-        <h1>Chinese-Japanese Converter</h1>
+        <p class="eyebrow">Chinese_Converter</p>
+        <h1>Chinese_Converter</h1>
       </div>
       <div class="header-actions">
         <span class="trust-badge">外部翻訳</span>

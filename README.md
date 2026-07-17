@@ -1,4 +1,4 @@
-# Chinese-Japanese Converter
+# Chinese_Converter
 
 スマホ優先の中国語変換アプリです。ブラウザ上で次の2系統を扱います。
 
