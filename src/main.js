@@ -197,30 +197,6 @@ document.querySelector("#app").innerHTML = `
             <p id="hanzi-status" class="status-line" role="status">中国語を入力して変換を押してください。</p>
 
             <div class="results-grid" aria-live="polite">
-              <article class="result-card">
-                <div class="result-head">
-                  <span>簡体字</span>
-                  <div class="result-actions">
-                    <button class="icon-button" type="button" data-speak="hanzi-chinese" aria-label="中国語を発音" title="中国語を発音" disabled>
-                      <i data-lucide="volume-2"></i>
-                    </button>
-                    <button class="icon-button" type="button" data-copy="simplified" aria-label="簡体字をコピー" title="簡体字をコピー" disabled>
-                      <i data-lucide="clipboard"></i>
-                    </button>
-                  </div>
-                </div>
-                <p id="hanzi-simplified" class="result-text muted">入力すると表示されます</p>
-              </article>
-              <article class="result-card">
-                <div class="result-head">
-                  <span>拼音</span>
-                  <button class="icon-button" type="button" data-copy="pinyin" aria-label="拼音をコピー" title="拼音をコピー" disabled>
-                    <i data-lucide="clipboard"></i>
-                  </button>
-                </div>
-                <p id="hanzi-pinyin" class="result-text muted">入力すると表示されます</p>
-                <p id="hanzi-pinyin-number" class="tone-text"></p>
-              </article>
               <article class="result-card wide">
                 <div class="result-head">
                   <span id="hanzi-meaning-label">意味（日本語）</span>
@@ -234,6 +210,21 @@ document.querySelector("#app").innerHTML = `
                   </div>
                 </div>
                 <p id="hanzi-meaning" class="result-text muted">変換すると表示されます</p>
+              </article>
+              <article class="result-card wide">
+                <div class="result-head">
+                  <span>拼音</span>
+                  <div class="result-actions">
+                    <button class="icon-button" type="button" data-speak="hanzi-chinese" aria-label="中国語を発音" title="中国語を発音" disabled>
+                      <i data-lucide="volume-2"></i>
+                    </button>
+                    <button class="icon-button" type="button" data-copy="pinyin" aria-label="拼音をコピー" title="拼音をコピー" disabled>
+                      <i data-lucide="clipboard"></i>
+                    </button>
+                  </div>
+                </div>
+                <p id="hanzi-pinyin" class="result-text muted">入力すると表示されます</p>
+                <p id="hanzi-pinyin-number" class="tone-text"></p>
               </article>
             </div>
           </section>
@@ -292,7 +283,6 @@ const elements = {
   hanziSaveButton: document.querySelector("#hanzi-save-history"),
   hanziTargetNote: document.querySelector("#hanzi-target-note"),
   hanziStatus: document.querySelector("#hanzi-status"),
-  hanziSimplified: document.querySelector("#hanzi-simplified"),
   hanziPinyin: document.querySelector("#hanzi-pinyin"),
   hanziPinyinNumber: document.querySelector("#hanzi-pinyin-number"),
   hanziMeaningLabel: document.querySelector("#hanzi-meaning-label"),
@@ -321,6 +311,9 @@ function wireEvents() {
   });
 
   elements.translateInput.addEventListener("input", updateTranslateByteCount);
+  elements.translateInput.addEventListener("keydown", (event) => {
+    handleRunShortcut(event, () => translateJapanese(true), state.isTranslating);
+  });
   elements.translateButton.addEventListener("click", () => translateJapanese(true));
   document.querySelector("#translation-save-history").addEventListener("click", () => {
     if (state.lastTranslationResult) {
@@ -343,6 +336,9 @@ function wireEvents() {
 
   elements.hanziInput.addEventListener("input", () => {
     renderHanziConversion(false);
+  });
+  elements.hanziInput.addEventListener("keydown", (event) => {
+    handleRunShortcut(event, () => renderHanziConversion(true), state.isHanziTranslating);
   });
   elements.hanziButton.addEventListener("click", () => {
     renderHanziConversion(true);
@@ -401,6 +397,12 @@ function handleTabKeydown(event) {
   event.preventDefault();
   setMode(nextMode);
   document.querySelector(`[data-mode-button="${nextMode}"]`)?.focus();
+}
+
+function handleRunShortcut(event, run, isRunning) {
+  if (!event.shiftKey || event.key !== "Enter" || event.isComposing || isRunning) return;
+  event.preventDefault();
+  run();
 }
 
 function renderAll() {
@@ -630,14 +632,11 @@ async function renderHanziConversion(shouldTranslate) {
   if (!input) {
     state.lastHanziResult = null;
     elements.hanziSaveButton.disabled = true;
-    setCopyButtonState("simplified", false);
     setCopyButtonState("pinyin", false);
     setCopyButtonState("hanzi-meaning", false);
     setSpeakButtonState("hanzi-chinese", false);
     setSpeakButtonState("hanzi-meaning", false);
     elements.hanziStatus.textContent = "中国語を入力して変換を押してください。";
-    elements.hanziSimplified.textContent = "入力すると表示されます";
-    elements.hanziSimplified.classList.add("muted");
     elements.hanziPinyin.textContent = "入力すると表示されます";
     elements.hanziPinyin.classList.add("muted");
     elements.hanziPinyinNumber.textContent = "";
@@ -664,13 +663,10 @@ async function renderHanziConversion(shouldTranslate) {
     meaning: previousMeaning || ""
   };
 
-  elements.hanziSimplified.textContent = simplified;
-  elements.hanziSimplified.classList.remove("muted");
   elements.hanziPinyin.textContent = marked;
   elements.hanziPinyin.classList.remove("muted");
   elements.hanziPinyinNumber.textContent = numbered;
   elements.hanziSaveButton.disabled = false;
-  setCopyButtonState("simplified", true);
   setCopyButtonState("pinyin", true);
   setSpeakButtonState("hanzi-chinese", true);
   renderHanziMeaning(state.lastHanziResult.meaning);
@@ -841,7 +837,7 @@ function copyResult(kind) {
   const result = kind.startsWith("translation") ? state.lastTranslationResult : state.lastHanziResult;
   if (!result) return;
   const text =
-    kind === "simplified" || kind === "translation"
+    kind === "translation"
       ? result.simplified
       : kind === "translation-pinyin"
         ? result.pinyin
@@ -941,9 +937,9 @@ function findSpeechVoice(language) {
 
 function formatHanziHistoryDetail(result) {
   if (result.meaning) {
-    return `${result.meaning} / ${result.simplified}`;
+    return `${result.meaning} / ${result.pinyin}`;
   }
-  return result.simplified;
+  return result.pinyin;
 }
 
 function toPinyin(text, toneType) {
